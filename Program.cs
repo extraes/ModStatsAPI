@@ -56,8 +56,9 @@ namespace ModStats
             //}
 
             //if (app.Environment.IsDevelopment())
-                //app.Run();
+            //app.Run();
             //else
+            Console.WriteLine("");
             app.Run("http://stats.extraes.xyz");
         }
     }

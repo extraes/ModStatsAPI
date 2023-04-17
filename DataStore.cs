@@ -28,7 +28,7 @@ namespace ModStats
 
         static DataStore()
         {
-            return;
+            //return;
             var envs = Environment.GetEnvironmentVariables();
             
             Console.WriteLine("AWS Config: ");
@@ -49,9 +49,12 @@ namespace ModStats
 
             s3 = new AmazonS3Client(new BasicAWSCredentials(EnvironVars.CloudAccessKey, EnvironVars.CloudSecretKey), Amazon.RegionEndpoint.USEast1);
             uploadUtil = new(s3);
+            Console.WriteLine("Created AWS objects");
 
             Load();
-            Console.WriteLine("Internal Bless: " + Hash(EnvironVars.DatastireInternalsPass));
+            Console.WriteLine("Loaded DataStore data");
+
+            Console.WriteLine("Internal Bless: " + secrets[EnvironVars.DatastoreInternalsKey]);
             Console.WriteLine("DataStore Path: " + Path.GetFullPath(EnvironVars.DatastoreLocalPath));
 
             new Thread(UploadThread)
@@ -60,6 +63,7 @@ namespace ModStats
                 IsBackground = true,
             }
             .Start();
+            Console.WriteLine("Started background upload thread");
         }
 
         [MemberNotNull(nameof(data), nameof(secrets))]
@@ -74,11 +78,24 @@ namespace ModStats
                 Console.WriteLine($"FAILED TO FETCH FROM AWS! {e}");
             }
 
+            Console.WriteLine("AWS check in finished");
+
             string serializedData = File.ReadAllText(EnvironVars.DatastoreLocalPath);
             data = TomletMain.To<DataStoreDict>(serializedData);
-            secrets = new();
-            data[EnvironVars.DatastoreInternalsKey] = secrets;
+            Console.WriteLine("Read file, converted to C# object");
+
+            if (data.ContainsKey(EnvironVars.DatastoreInternalsKey))
+            {
+                secrets = data[EnvironVars.DatastoreInternalsKey];
+            }
+            else
+            {
+                secrets = new();
+                data[EnvironVars.DatastoreInternalsKey] = secrets;
+            }
             secrets[EnvironVars.DatastoreInternalsKey] = Hash(EnvironVars.DatastireInternalsPass);
+            
+            Console.WriteLine("Secrets set successfully");
         }
 
         static void Save()
@@ -171,6 +188,7 @@ namespace ModStats
                 Console.WriteLine("Skipping AWS S3 download - file was last modified...");
                 Console.WriteLine($"--> LOCAL: {finf.LastWriteTime}");
                 Console.WriteLine($"--> CLOUD: {getMetadataRes.LastModified}");
+                return;
             }
 
             var objReq = new Amazon.S3.Model.GetObjectRequest()
@@ -180,7 +198,10 @@ namespace ModStats
             };
 
             using var getObjRes = await s3.GetObjectAsync(objReq);
-            await getObjRes.WriteResponseStreamToFileAsync(EnvironVars.DatastoreLocalPath, false, default);
+            File.Delete(EnvironVars.DatastoreLocalPath);
+            using FileStream file = File.Create(EnvironVars.DatastoreLocalPath);
+            await getObjRes.ResponseStream.CopyToAsync(file);
+            //await getObjRes.WriteResponseStreamToFileAsync(EnvironVars.DatastoreLocalPath, false, default);
         }
 
         private static async Task SaveToCloud()
