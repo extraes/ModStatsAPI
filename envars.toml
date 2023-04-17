@@ -1,0 +1,7 @@
+_cloudBucket = ""
+_cloudPath = ""
+_cloudAccessKey = ""
+_cloudSecretKey = ""
+_datastorePath = ""
+_datastoreInternalsKey = ""
+_datastoreInternalsPass = ""
