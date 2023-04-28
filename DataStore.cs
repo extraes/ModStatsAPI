@@ -67,11 +67,14 @@ namespace ModStats
         }
 
         [MemberNotNull(nameof(data), nameof(secrets))]
-        static void Load()
+        static async void Load()
         {
             try
             {
-                DownloadFromCloud().GetAwaiter().GetResult();
+                //Task.Run(DownloadFromCloud).GetAwaiter().GetResult();
+#pragma warning disable CS8774 // Member must have a non-null value when exiting.
+                await DownloadFromCloud();
+#pragma warning restore CS8774 // Member must have a non-null value when exiting.
             }
             catch (Exception e)
             {
@@ -197,10 +200,15 @@ namespace ModStats
                 Key = EnvironVars.CloudPath,
             };
 
-            using var getObjRes = await s3.GetObjectAsync(objReq);
+            Console.WriteLine("Requesting S3 object...");
+            var getObjRes = await s3.GetObjectAsync(objReq);
+            Console.WriteLine("Got S3 object response");
             File.Delete(EnvironVars.DatastoreLocalPath);
+            Console.WriteLine("Deleted local datastore file");
             using FileStream file = File.Create(EnvironVars.DatastoreLocalPath);
-            await getObjRes.ResponseStream.CopyToAsync(file);
+            using var stream = getObjRes.ResponseStream;
+            await stream.CopyToAsync(file);
+            Console.WriteLine("Copied from AWS to local file.");
             //await getObjRes.WriteResponseStreamToFileAsync(EnvironVars.DatastoreLocalPath, false, default);
         }
 
